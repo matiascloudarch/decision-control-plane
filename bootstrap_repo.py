@@ -1,19 +1,34 @@
-#!/bin/bash
+from pathlib import Path
 
-mkdir -p decision-control-plane/src/decision_control_plane/{core,infrastructure,governance,simulation,app}
+BASE = Path("decision-control-plane")
 
-touch decision-control-plane/README.md
-touch decision-control-plane/requirements.txt
-touch decision-control-plane/.gitignore
+STRUCTURE = {
+    "README.md": "",
+    "requirements.txt": "python>=3.9\n",
+    ".gitignore": "__pycache__/\n.env\n.venv/\n",
+    "src/decision_control_plane/__init__.py": "",
+    "src/decision_control_plane/core/__init__.py": "",
+    "src/decision_control_plane/core/types.py": "",
+    "src/decision_control_plane/core/ports.py": "",
+    "src/decision_control_plane/core/domain.py": "",
+    "src/decision_control_plane/infrastructure/__init__.py": "",
+    "src/decision_control_plane/infrastructure/clock.py": "",
+    "src/decision_control_plane/infrastructure/entropy.py": "",
+    "src/decision_control_plane/governance/__init__.py": "",
+    "src/decision_control_plane/governance/engine.py": "",
+    "src/decision_control_plane/simulation/__init__.py": "",
+    "src/decision_control_plane/simulation/stability.py": "",
+    "src/decision_control_plane/app/__init__.py": "",
+    "src/decision_control_plane/app/main.py": "",
+}
 
-for dir in core infrastructure governance simulation app; do
-  touch decision-control-plane/src/decision_control_plane/$dir/__init__.py
-done
+def main():
+    for path, content in STRUCTURE.items():
+        full_path = BASE / path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.write_text(content)
 
-touch decision-control-plane/src/decision_control_plane/core/{types.py,ports.py,domain.py}
-touch decision-control-plane/src/decision_control_plane/infrastructure/{clock.py,entropy.py}
-touch decision-control-plane/src/decision_control_plane/governance/engine.py
-touch decision-control-plane/src/decision_control_plane/simulation/stability.py
-touch decision-control-plane/src/decision_control_plane/app/main.py
+    print("✅ Repository structure created successfully.")
 
-echo "✅ Repo initialized"
+if __name__ == "__main__":
+    main()
