@@ -1,37 +1,43 @@
-from collections import Counter
-from decision_control_plane.core.types import TraceID, DecisionType
-from decision_control_plane.core.domain import EvaluationContext
-from decision_control_plane.core.types import PolicyID
+import numpy as np
+from typing import Dict
+from core.domain import ControlConfig
+from core.ports import StabilityPort, EntropyPort
 
-class StabilityAnalyzer:
-    def __init__(self, engine, rng):
-        self.engine = engine
-        self.rng = rng
 
-    def project(self, start_node: PolicyID):
-        outcomes = Counter()
-        runs = self.engine.cfg.monte_carlo_runs
-        policies = list(self.engine.cfg.policies.values())
+class MonteCarloStabilityAnalyzer(StabilityPort):
+    def __init__(self, cfg: ControlConfig, entropy: EntropyPort):
+        self.cfg = cfg
+        self.entropy = entropy
 
-        for i in range(runs):
-            sim_scores = {
-                p.id: max(0.0, min(1.0, self.rng.gauss(p.base_score, p.volatility)))
-                for p in policies
-            }
+    def confidence(
+        self,
+        candidate: str,
+        scores: Dict[str, float],
+        incumbent: str,
+    ) -> float:
+        policy_ids = list(self.cfg.policies.keys())
 
-            ctx = EvaluationContext(
-                TraceID(f"sim-{i}"),
-                start_node,
-                sim_scores
-            )
+        base_scores = np.array([scores[p] for p in policy_ids])
+        volatility = np.array(
+            [self.cfg.policies[p].volatility for p in policy_ids]
+        )
 
-            decision = self.engine.evaluate(ctx)
-            key = (
-                decision.selected_policy
-                if decision.decision_type == DecisionType.SWITCH
-                else "MAINTAIN"
-            )
-            outcomes[key] += 1
+        noise = self.entropy.normal(
+            mean=0.0,
+            std=volatility,
+            shape=(self.cfg.monte_carlo_runs, len(policy_ids)),
+        )
 
-        return {k: (v / runs) * 100 for k, v in outcomes.items()}
+        simulated = np.clip(base_scores + noise, 0.0, 1.0)
 
+        penalties = np.array([
+            0.0 if p == incumbent else self.cfg.hysteresis
+            for p in policy_ids
+        ])
+
+        final_scores = simulated - penalties
+        winners = np.argmax(final_scores, axis=1)
+
+        return float(
+            (winners == policy_ids.index(candidate)).mean()
+        )
