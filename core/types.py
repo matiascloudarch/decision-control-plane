@@ -1,11 +1,13 @@
 from enum import Enum
-from typing import NewType
 
-PolicyID = NewType("PolicyID", str)
-TraceID = NewType("TraceID", str)
+
+class OperationalMode(str, Enum):
+    SHADOW = "SHADOW"
+    AUTOMATIC = "AUTOMATIC"
+
 
 class DecisionType(str, Enum):
     SWITCH = "SWITCH"
     MAINTAIN = "MAINTAIN"
-    BLOCKED = "BLOCKED"
-    EMERGENCY_STOP = "EMERGENCY_STOP"
+    DENY_CHANGE = "DENY_CHANGE"
+    QUARANTINE = "QUARANTINE"
