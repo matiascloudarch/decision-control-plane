@@ -1,16 +1,21 @@
-from abc import ABC, abstractmethod
-from datetime import datetime
+from typing import Dict
 
-class Clock(ABC):
-    @abstractmethod
-    def now(self) -> datetime:
-        pass
 
-class EntropySource(ABC):
-    @abstractmethod
-    def gauss(self, mu: float, sigma: float) -> float:
-        pass
+class StabilityPort:
+    def confidence(
+        self,
+        candidate: str,
+        scores: Dict[str, float],
+        incumbent: str,
+    ) -> float:
+        raise NotImplementedError
 
-    @abstractmethod
-    def seed(self, val: int) -> None:
-        pass
+
+class ClockPort:
+    def now(self):
+        raise NotImplementedError
+
+
+class EntropyPort:
+    def normal(self, mean: float, std: float, shape):
+        raise NotImplementedError
