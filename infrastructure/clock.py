@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
-from decision_control_plane.core.ports import Clock
+from core.ports import ClockPort
 
-class SystemClock(Clock):
-    def now(self) -> datetime:
+
+class SystemClock(ClockPort):
+    def now(self):
         return datetime.now(timezone.utc)
-
