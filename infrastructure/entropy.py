@@ -1,13 +1,10 @@
-import random
-from decision_control_plane.core.ports import EntropySource
+import numpy as np
+from core.ports import EntropyPort
 
-class DeterministicRNG(EntropySource):
-    def __init__(self, seed_val: int = 42):
-        self._rng = random.Random(seed_val)
 
-    def seed(self, val: int) -> None:
-        self._rng.seed(val)
+class NumpyEntropy(EntropyPort):
+    def __init__(self, seed: int = 42):
+        self.rng = np.random.default_rng(seed)
 
-    def gauss(self, mu: float, sigma: float) -> float:
-        return self._rng.gauss(mu, sigma)
-
+    def normal(self, mean: float, std: float, shape):
+        return self.rng.normal(mean, std, shape)
