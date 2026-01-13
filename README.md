@@ -1,108 +1,207 @@
-# decision-control-plane
+Decision Control Plane (DCP)
 
-**A decision control plane for governing AI infrastructure under uncertainty.**
+Deterministic governance for infrastructure decisions under uncertainty
 
-`decision-control-plane` is a lightweight, deterministic governance kernel designed to
-make **infrastructure-level decisions for AI systems** under noisy, uncertain, and dynamic conditions.
+Overview
 
-It models how an AI Platform / MLOps system can:
-- arbitrate between multiple infrastructure or policy options
-- apply hysteresis and stability guarantees
-- prevent flapping and unsafe switches
-- project future stability using Monte Carlo simulation
+Modern infrastructure systems are excellent at predicting metrics.
 
-This project is intentionally **dependency-free**, **auditable**, and **deterministic by design**.
+They are far less reliable at deciding when it is safe to act.
 
----
+Most critical operational decisions — cloud provider switches, cost optimizations, scaling policies — are still executed through:
 
-## Why this project exists
+ad-hoc scripts
 
-Modern AI platforms rely on:
-- multiple cloud providers
-- multiple models / endpoints
-- dynamic cost, latency, and reliability signals
+static thresholds
 
-Yet most systems lack a **formal decision layer**.
+implicit human judgment
 
-`decision-control-plane` acts as that layer.
+fragile if/else logic buried inside pipelines
 
-It is inspired by:
-- Kubernetes control planes
-- FinOps policy engines
-- AI platform governance
-- safety-first system design
+This works until metrics become noisy, incentives conflict, or systems operate at scale.
 
----
+Decision Control Plane (DCP) introduces a dedicated control layer whose sole responsibility is to authorize or deny infrastructure changes based on system stability, not short-term optimization.
 
-## Architecture
+What is DCP?
 
-**Hexagonal Architecture (Ports & Adapters)**
+DCP is a deterministic governance kernel that sits above execution layers and evaluates whether a proposed infrastructure action is safe to execute under uncertainty.
 
-decision-control-plane/
+It does not perform the action itself.
+
+It decides whether the action should be allowed to happen.
+
+Core Philosophy
+
+Trust is not a belief.
+It is an emergent property of architecture.
+
+DCP treats infrastructure decisions as a control systems problem, not a prediction or optimization problem.
+
+Its primary function is to prevent incorrect decisions under noise.
+
+What DCP Does
+
+Evaluates candidate infrastructure changes (e.g. cloud region/provider switches)
+
+Projects system stability using stochastic simulation
+
+Applies deterministic decision logic with hysteresis
+
+Explicitly authorizes, denies, or suppresses execution
+
+Produces structured, auditable decision traces
+
+What DCP Is Not
+
+DCP is intentionally constrained.
+
+It:
+
+❌ does not optimize costs
+
+❌ does not learn or self-tune
+
+❌ does not promise savings
+
+❌ does not replace execution systems
+
+Its only objective is decision safety.
+
+Architectural Principles
+1. Deterministic Governance
+
+Same inputs always produce the same decision.
+No black boxes inside the control plane.
+
+2. Stability Over Reactivity
+
+Transient spikes should not trigger irreversible actions.
+Hysteresis filters noise and prevents flapping.
+
+3. Stochastic Risk Projection
+
+Monte Carlo simulation is used to estimate instability risk before execution, not after incidents.
+
+4. Explicit Authority
+
+DCP has formal authority to say NO, even when short-term metrics look favorable.
+
+5. Native Auditability
+
+Every decision emits a structured report suitable for observability, compliance, and post-mortems.
+
+High-Level Architecture
+Inputs
+ ├─ Latency & Cost Signals
+ ├─ Telemetry & Errors
+ └─ Policy Configuration
+        ↓
+Decision Control Plane
+ ├─ Governance Engine (decision logic + hysteresis)
+ ├─ Policy Evaluator (scoring & prioritization)
+ ├─ Monte Carlo Stability Analyzer (risk projection)
+ └─ Audit Log (traceable decisions)
+        ↓
+Outputs
+ ├─ Authorized / Denied Change
+ ├─ System State Control
+ └─ Risk & Stability Report
+
+
+See the architecture diagram in /docs/architecture.png.
+
+Example Decision Output
+DECISION CONTROL PLANE — EXECUTION REPORT
+================================================================================
+MODE            : AUTOMATIC
+CONTROL TYPE    : DETERMINISTIC GOVERNANCE
+ACTIVE PLATFORM : berlin
+================================================================================
+
+TRACE ID        : tx-7f8544
+DECISION        : SWITCH
+EVALUATED UNIT  : tokyo
+EXECUTING UNIT  : tokyo
+RATIONALE       : Structural improvement validated within stability envelope.
+CONFIDENCE      : 99.4%
+EST. SAVINGS    : $10,000 USD / month
+
+--------------------------------------------------------------------------------
+FINAL OPERATING STATE : tokyo
+================================================================================
+
+Operational Modes
+
+AUTOMATIC
+Decisions are authorized and executed if stability criteria are met.
+
+SHADOW
+Decisions are evaluated and logged, but execution is suppressed.
+Useful for validation and trust-building.
+
+Project Structure
+dcp/
+├─ core/
+│  ├─ governance.py        # Deterministic decision logic
+│  ├─ evaluator.py         # Policy scoring & prioritization
+│  ├─ stability.py         # Monte Carlo risk projection
+│  └─ audit.py             # Structured decision reports
 │
-├── core/ # Pure domain (no infrastructure)
-│ ├── types.py
-│ ├── ports.py
-│ └── domain.py
+├─ models/
+│  ├─ policy.py
+│  ├─ platform.py
+│  └─ decisions.py
 │
-├── governance/ # Decision engine
-│ └── engine.py
+├─ demo/
+│  └─ run_demo.py          # Reproducible demonstration scenario
 │
-├── simulation/ # Monte Carlo stability projection
-│ └── stability.py
+├─ docs/
+│  └─ architecture.png
 │
-├── infrastructure/ # Adapters (clock, entropy)
-│ ├── clock.py
-│ └── entropy.py
-│
-└── app/
-└── main.py # Demo / entrypoint
+└─ README.md
 
-yaml
+Design Intent
 
----
+DCP is designed to live above pipelines, not inside them.
 
-## Key concepts
+Infrastructure decisions that affect:
 
-- **Decision Control Plane**  
-  A deterministic layer that decides *when* and *why* to switch infrastructure or policies.
+availability
 
-- **Hysteresis & Stability**  
-  Prevents noisy metrics from causing oscillations.
+cost
 
-- **Monte Carlo Projection**  
-  Quantifies long-term stability and risk.
+operational risk
 
-- **Auditability**  
-  Every decision emits structured JSON logs.
+should not be implemented as hidden conditional logic in CI/CD workflows.
 
----
+That is not architecture.
 
-## Example output
+That is improvisation.
 
-```json
-AUDIT_LOG: {
-  "trace_id": "tx-999",
-  "selected_policy": "tokyo",
-  "decision_type": "MAINTAIN",
-  "raw_score": 0.84,
-  "final_score": 0.82,
-  "reason": "Optimización de política",
-  "metadata": {"p_vol": 0.02, "p_hys": 0.0},
-  "timestamp": "2025-12-17T21:35:11Z"
-}
-Intended audience
-AI Platform Engineers
+Intended Audience
 
-MLOps Engineers
+Site Reliability Engineers (SRE)
 
-AI Architects
+Platform Engineers
 
-Infrastructure / FinOps Engineers
+Infrastructure Architects
 
-Author
-Built by Matías Salgado
-AI Platform / MLOps / Infrastructure Architecture
+Staff / Principal Engineers
 
-This project is part of a continuous portfolio focused on:
-AI governance, cost control, and resilient system design.
+Teams operating large-scale or multi-cloud systems
+
+Status
+
+This repository is a reference implementation intended to demonstrate:
+
+decision-first system design
+
+deterministic governance patterns
+
+control-theoretic thinking applied to infrastructure
+
+It is not production software.
+
+License
+
+MIT
