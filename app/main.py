@@ -1,42 +1,69 @@
-from decision_control_plane.infrastructure.clock import SystemClock
-from decision_control_plane.infrastructure.entropy import DeterministicRNG
-from decision_control_plane.core.domain import AppConfig, PolicyConfig, EvaluationContext
-from decision_control_plane.core.types import PolicyID, TraceID
-from decision_control_plane.governance.engine import GovernanceEngine
-from decision_control_plane.simulation.stability import StabilityAnalyzer
+import random
+
+from core.domain import Policy, ControlConfig
+from core.types import OperationalMode
+from infrastructure.clock import SystemClock
+from infrastructure.entropy import NumpyEntropy
+from simulation.stability import MonteCarloStabilityAnalyzer
+from governance.engine import DecisionControlPlane
+
 
 def main():
-    clock = SystemClock()
-    rng = DeterministicRNG(seed_val=12345)
-
-    cfg = AppConfig(policies={
-        PolicyID("tokyo"):    PolicyConfig(PolicyID("tokyo"), 0.85, 0.02, 2),
-        PolicyID("berlin"):   PolicyConfig(PolicyID("berlin"), 0.88, 0.04, 3),
-        PolicyID("istanbul"): PolicyConfig(PolicyID("istanbul"), 0.78, 0.08, 1),
-    })
-
-    engine = GovernanceEngine(cfg, clock)
-    analyzer = StabilityAnalyzer(engine, rng)
-
-    ctx = EvaluationContext(
-        TraceID("tx-999"),
-        PolicyID("tokyo"),
-        {
-            PolicyID("tokyo"): 0.84,
-            PolicyID("berlin"): 0.92,
-            PolicyID("istanbul"): 0.75
-        }
+    cfg = ControlConfig(
+        mode=OperationalMode.AUTOMATIC,
+        decision_threshold=0.75,
+        hysteresis=0.07,
+        min_stability=0.90,
+        error_threshold=0.25,
+        monte_carlo_runs=800,
+        cooldown_minutes=10,
+        policies={
+            "tokyo": Policy("tokyo", 0.005, 0.01, 1),
+            "berlin": Policy("berlin", 0.002, 0.06, 1),
+            "istanbul": Policy("istanbul", 0.001, 0.10, 3),
+        },
     )
 
-    decision = engine.evaluate(ctx)
-    decision.log_json()
+    entropy = NumpyEntropy()
+    clock = SystemClock()
+    stability = MonteCarloStabilityAnalyzer(cfg, entropy)
 
-    print("\n[STABILITY PROJECTION]")
-    stats = analyzer.project(decision.selected_policy)
-    for k, v in sorted(stats.items(), key=lambda x: -x[1]):
-        bar = "█" * int(v / 2)
-        print(f"{str(k):<12} | {bar} {v:.1f}%")
+    dcp = DecisionControlPlane(cfg, stability, clock)
+
+    print("\nDECISION CONTROL PLANE — EXECUTION REPORT")
+    print("=" * 88)
+    print(f"MODE            : {cfg.mode.value}")
+    print("CONTROL TYPE    : DETERMINISTIC GOVERNANCE")
+    print(f"ACTIVE PLATFORM : {dcp.state['current_policy']}")
+    print("=" * 88)
+
+    for _ in range(1):
+        scores = {
+            "tokyo": 0.82,
+            "berlin": 0.95,
+            "istanbul": 0.74,
+        }
+
+        errors = {
+            "tokyo": 0.01,
+            "berlin": random.choice([0.02, 0.30]),
+            "istanbul": 0.05,
+        }
+
+        decision = dcp.evaluate(scores, errors)
+
+        print(f"\nTRACE ID        : {decision['trace_id']}")
+        print(f"DECISION        : {decision['decision']}")
+        print(f"EVALUATED UNIT  : {decision['evaluated']}")
+        print(f"EXECUTING UNIT  : {decision['executing']}")
+        print(f"RATIONALE       : {decision['rationale']}")
+        print(f"CONFIDENCE      : {decision['confidence']}%")
+
+    print("\n" + "-" * 88)
+    print(f"Estimated Net Savings : ${dcp.state['total_savings']:.2f} USD / month")
+    print(f"FINAL OPERATING STATE : {dcp.state['current_policy']}")
+    print("=" * 88)
+
 
 if __name__ == "__main__":
     main()
-
