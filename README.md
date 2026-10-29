@@ -54,24 +54,58 @@ DCP treats infrastructure decisions as a control theory problem rather than a pu
 5. **Native Auditability:** Every evaluation emits structured, traceable reports for compliance and post-mortem analysis.
 
 ## High-Level Architecture
-```text
-Inputs
-├── Telemetry & Error Rates
-├── Performance Scores
-└── Policy Configurations
-│
-▼
-Decision Control Plane
-├── Governance Engine (Safety gates & cooldowns)
-├── Policy Evaluator (Thresholds & hysteresis)
-├── Monte Carlo Stability Analyzer (Stochastic simulation)
-└── State Repository (Traceable execution state)
-│
-▼
-Outputs
-├── Authorized / Denied Decision
-├── Execution State Update
-└── Audit Report
+```mermaid
+flowchart TD
+    %% Styling Classes
+    classDef input fill:#0f172a,stroke:#475569,color:#f8fafc,stroke-width:2px;
+    classDef spine fill:#1e3a8a,stroke:#60a5fa,color:#f8fafc,stroke-width:2px;
+    classDef process fill:#1e293b,stroke:#3b82f6,color:#f8fafc,stroke-width:1px;
+    classDef termQ fill:#7f1d1d,stroke:#ef4444,color:#f8fafc,stroke-width:1px;
+    classDef termD fill:#9a3412,stroke:#f97316,color:#f8fafc,stroke-width:1px;
+    classDef termM fill:#312e81,stroke:#6366f1,color:#f8fafc,stroke-width:1px;
+    classDef termS fill:#064e3b,stroke:#10b981,color:#f8fafc,stroke-width:2px;
+    classDef storage fill:#334155,stroke:#94a3b8,color:#f8fafc,stroke-width:1px;
+
+    %% 1. Data Ingestion
+    subgraph Inputs ["1. Telemetry & Context"]
+        IN1[Multi-Region Scores & Errors]:::input
+        IN2[Control Config & Hysteresis]:::input
+    end
+
+    %% 2. The Evaluation Spine (Happy Path)
+    subgraph Engine ["2. Decision Control Plane (Evaluation Spine)"]
+        G1{"Hard Safety Envelope<br/><i>Error > Max Threshold?</i>"}:::spine
+        P1[Policy Evaluator<br/><i>Calculate Scores & Hysteresis Penalty</i>]:::process
+        G2{"Cooldown Filter<br/><i>Switch within time window?</i>"}:::spine
+        G3{"Stochastic Risk Gate<br/><i>Monte Carlo Conf < Min?</i>"}:::spine
+        G4{"Execution Mode<br/><i>Mode == SHADOW?</i>"}:::spine
+    end
+
+    %% 3. Terminal Outputs
+    subgraph Outputs ["3. Action & Audit Trace"]
+        Q[QUARANTINE]:::termQ
+        D[DENY_CHANGE]:::termD
+        M[MAINTAIN]:::termM
+        S[SWITCH]:::termS
+        DB[("JSON State Store<br/>(control_plane_state.json)")]:::storage
+    end
+
+    %% Main Flow (Solid Lines)
+    IN1 --> G1
+    IN2 --> G1
+    G1 ==>|No / Safe| P1
+    P1 ==>|Alternative Candidate Found| G2
+    G2 ==>|Cleared| G3
+    G3 ==>|Stable| G4
+    G4 ==>|AUTOMATIC| S
+    S ==>|Authorize & Persist| DB
+
+    %% Early Exits (Dotted Lines)
+    G1 -.->|Yes / Critical| Q
+    P1 -.->|Incumbent Optimal| M
+    G2 -.->|Active| D
+    G3 -.->|Unstable| D
+    G4 -.->|Yes| M
 ```
 
 ## Example Decision Output
