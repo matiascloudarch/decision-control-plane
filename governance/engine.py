@@ -1,13 +1,16 @@
+# Copyright 2026 Matías Salgado
+# Licensed under the Apache License, Version 2.0.
+
 import json
 import random
+from datetime import datetime, timedelta
 from pathlib import Path
-from datetime import timedelta
-from typing import Dict
+from typing import Any, Dict
 
 from core.domain import ControlConfig
-from core.types import DecisionType, OperationalMode
-from core.ports import StabilityPort, ClockPort
-
+from core.enums import DecisionType, OperationalMode
+from core.ports import ClockPort, StabilityPort
+from governance.evaluator import PolicyEvaluator
 
 STATE_FILE = Path("control_plane_state.json")
 
@@ -22,9 +25,10 @@ class DecisionControlPlane:
         self.cfg = cfg
         self.stability = stability
         self.clock = clock
-        self.state = self._load_state()
+        self.evaluator = PolicyEvaluator(cfg)
+        self.state: Dict[str, Any] = self._load_state()
 
-    def _load_state(self):
+    def _load_state(self) -> Dict[str, Any]:
         default = {
             "current_policy": "tokyo",
             "last_switch": None,
@@ -35,19 +39,22 @@ class DecisionControlPlane:
             return default
 
         try:
-            return json.loads(STATE_FILE.read_text())
+            data = json.loads(STATE_FILE.read_text())
+            if isinstance(data, dict):
+                return data
+            return default
         except Exception:
             return default
 
-    def _save_state(self):
+    def _save_state(self) -> None:
         tmp = STATE_FILE.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.state, indent=2))
         tmp.replace(STATE_FILE)
 
-    def _cooldown_active(self):
+    def _cooldown_active(self) -> bool:
         if not self.state["last_switch"]:
             return False
-        last = self.clock.now().fromisoformat(self.state["last_switch"])
+        last = datetime.fromisoformat(self.state["last_switch"])
         return self.clock.now() - last < timedelta(
             minutes=self.cfg.cooldown_minutes
         )
@@ -56,12 +63,11 @@ class DecisionControlPlane:
         self,
         scores: Dict[str, float],
         error_rates: Dict[str, float],
-    ) -> dict:
-
-        incumbent = self.state["current_policy"]
+    ) -> Dict[str, Any]:
+        incumbent = str(self.state["current_policy"])
 
         # Hard safety gate
-        for pid, err in error_rates.items():
+        for _pid, err in error_rates.items():
             if err > self.cfg.error_threshold:
                 return self._decision(
                     DecisionType.QUARANTINE,
@@ -71,14 +77,7 @@ class DecisionControlPlane:
                     1.0,
                 )
 
-        viable = []
-        for pid, score in scores.items():
-            if score < self.cfg.decision_threshold:
-                continue
-            penalty = 0.0 if pid == incumbent else self.cfg.hysteresis
-            viable.append((pid, score - penalty))
-
-        viable.sort(key=lambda x: x[1], reverse=True)
+        viable = self.evaluator.evaluate_viable(scores, incumbent)
 
         if not viable or viable[0][0] == incumbent:
             return self._decision(
@@ -147,9 +146,9 @@ class DecisionControlPlane:
         executing: str,
         rationale: str,
         confidence: float,
-    ):
+    ) -> Dict[str, Any]:
         return {
-            "trace_id": f"tx-{random.randint(100000,999999)}",
+            "trace_id": f"tx-{random.randint(100000, 999999)}",
             "decision": dtype.value,
             "evaluated": evaluated,
             "executing": executing,

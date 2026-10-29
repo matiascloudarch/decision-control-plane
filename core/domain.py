@@ -1,6 +1,10 @@
+# Copyright 2026 Matías Salgado
+# Licensed under the Apache License, Version 2.0.
+
 from dataclasses import dataclass
 from typing import Dict
-from core.types import OperationalMode
+
+from core.enums import OperationalMode
 
 
 @dataclass(frozen=True)

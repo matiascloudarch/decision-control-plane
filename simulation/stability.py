@@ -1,7 +1,12 @@
-import numpy as np
+# Copyright 2026 Matías Salgado
+# Licensed under the Apache License, Version 2.0.
+
 from typing import Dict
+
+import numpy as np
+
 from core.domain import ControlConfig
-from core.ports import StabilityPort, EntropyPort
+from core.ports import EntropyPort, StabilityPort
 
 
 class MonteCarloStabilityAnalyzer(StabilityPort):

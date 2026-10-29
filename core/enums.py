@@ -1,3 +1,6 @@
+# Copyright 2026 Matías Salgado
+# Licensed under the Apache License, Version 2.0.
+
 from enum import Enum
 
 
